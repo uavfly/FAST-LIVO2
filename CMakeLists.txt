@@ -1,5 +1,5 @@
-cmake_minimum_required(VERSION 2.8.3)
-project(fast_livo)
+cmake_minimum_required(VERSION 3.5)
+project(fast_livo2)
 
 set(CMAKE_BUILD_TYPE "Release")
 message(STATUS "Build Type: ${CMAKE_BUILD_TYPE}")
@@ -76,72 +76,117 @@ else()
 endif()
 
 # Find catkin and required dependencies
-find_package(catkin REQUIRED COMPONENTS
-  geometry_msgs
-  nav_msgs
-  sensor_msgs
-  roscpp
-  rospy
-  std_msgs
-  pcl_ros
-  tf
-  message_generation
-  eigen_conversions
-  vikit_common
-  vikit_ros
-  cv_bridge
-  image_transport
-)
-
+find_package(ament_cmake REQUIRED)
+find_package(rclcpp REQUIRED)
+find_package(geometry_msgs REQUIRED)
+find_package(nav_msgs REQUIRED)
+find_package(sensor_msgs REQUIRED)
+find_package(std_msgs REQUIRED)
+find_package(pcl_ros REQUIRED)
+find_package(tf2_ros REQUIRED)
+find_package(cv_bridge REQUIRED)
+find_package(image_transport REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(PCL REQUIRED)
 find_package(OpenCV REQUIRED)
 find_package(Sophus REQUIRED)
-find_package(Boost REQUIRED COMPONENTS thread)
+find_package(vikit_common REQUIRED)
+find_package(vikit_ros REQUIRED)
+find_package(livox_ros_driver2 REQUIRED)
+find_package(visualization_msgs REQUIRED)
+find_package(OpenMP REQUIRED)
 
 set(Sophus_LIBRARIES libSophus.so)
 
-# Define the catkin package
-catkin_package(
-  CATKIN_DEPENDS geometry_msgs nav_msgs roscpp rospy std_msgs message_runtime cv_bridge vikit_common vikit_ros image_transport
-  DEPENDS EIGEN3 PCL OpenCV Sophus
+set(dependencies
+  rclcpp
+  geometry_msgs
+  nav_msgs
+  sensor_msgs
+  std_msgs
+  pcl_ros
+  tf2_ros
+  cv_bridge
+  image_transport
+  Eigen3
+  PCL
+  OpenCV
+  Sophus
+  Boost
+  vikit_common
+  vikit_ros
+  visualization_msgs
+  OpenMP
+  livox_ros_driver2
 )
 
 # Include directories for dependencies
 include_directories(
-  ${catkin_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
   ${PCL_INCLUDE_DIRS}
+  ${rclcpp_INCLUDE_DIRS}
   ${OpenCV_INCLUDE_DIRS}
   ${Sophus_INCLUDE_DIRS}
   include
 )
 
 # Add libraries
-add_library(vio src/vio.cpp src/frame.cpp src/visual_point.cpp)
-add_library(lio src/voxel_map.cpp)
-add_library(pre src/preprocess.cpp)
-add_library(imu_proc src/IMU_Processing.cpp)
-add_library(laser_mapping src/LIVMapper.cpp)
+add_library(laser_mapping
+  src/vio.cpp
+  src/frame.cpp
+  src/visual_point.cpp
+  src/voxel_map.cpp
+  src/preprocess.cpp
+  src/IMU_Processing.cpp
+  src/LIVMapper.cpp
+)
+
+ament_target_dependencies(laser_mapping
+  ${dependencies}
+)
 
 # Add the main executable
-add_executable(fastlivo_mapping src/main.cpp)
+add_executable(fastlivo2_mapping src/main.cpp)
 
 # Link libraries to the executable
-target_link_libraries(fastlivo_mapping
+target_link_libraries(fastlivo2_mapping
   laser_mapping
   vio
   lio
   pre
   imu_proc
-  ${catkin_LIBRARIES}
+  
+  vikit_common
+  vikit_ros
+  ${Sophus_LIBRARIES}
   ${PCL_LIBRARIES}
   ${OpenCV_LIBRARIES}
   ${Sophus_LIBRARIES}
   ${Boost_LIBRARIES}
+  ${OpenMP_CXX_LIBRARIES}
 )
 
 # Link mimalloc if found
 if(mimalloc_FOUND)
-  target_link_libraries(fastlivo_mapping mimalloc)
+  target_link_libraries(fastlivo2_mapping mimalloc)
 endif()
+
+install(
+  TARGETS fastlivo2_mapping
+  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+# Install include directories
+install(
+  DIRECTORY include/
+  DESTINATION include/${PROJECT_NAME}
+)
+
+install(DIRECTORY launch config rviz
+  DESTINATION share/${PROJECT_NAME}
+)
+
+ament_export_include_directories(include)
+ament_export_libraries(laser_mapping)
+ament_export_dependencies(${dependencies})
+ament_package()
